@@ -190,6 +190,15 @@ export default function AdminPage() {
                         className="w-full h-14 bg-surface rounded-2xl px-6 border border-outline-variant/20 focus:border-primary outline-none font-medium transition-all" 
                       />
                     </div>
+                    <div className="space-y-1 md:col-span-2">
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant ml-1">Descrizione Evento</label>
+                      <textarea 
+                        value={formData.description}
+                        onChange={(e) => setFormData({...formData, description: e.target.value})}
+                        placeholder="Descrivi l'evento, cosa si farà, requisiti, etc..." 
+                        className="w-full h-32 bg-surface rounded-2xl p-6 border border-outline-variant/20 focus:border-primary outline-none font-medium transition-all resize-none" 
+                      />
+                    </div>
                   </div>
                   <div className="flex gap-4 pt-4 md:max-w-md">
                     <button 

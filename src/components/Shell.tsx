@@ -25,7 +25,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
-        <div className="flex-1 flex flex-col w-full max-w-screen-xl mx-auto md:px-8 lg:px-12">
+        <div className="flex-1 flex flex-col w-full">
           {children}
         </div>
 

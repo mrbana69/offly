@@ -2,7 +2,7 @@
 
 import React, { use, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { ChevronLeft, Share2, Calendar as CalendarIcon, MapPin, Users, Bolt, Heart, Check } from "lucide-react"
+import { ChevronLeft, Share2, Calendar as CalendarIcon, MapPin, Users, Bolt, Heart, Check, ShieldCheck } from "lucide-react"
 import { motion } from "framer-motion"
 import { useAuth } from "@/context/AuthContext"
 import { addEventToGoogleCalendar } from "@/lib/calendar"
@@ -15,7 +15,7 @@ import LoadingScreen from "@/components/LoadingScreen"
 export default function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
-  const { user, accessToken } = useAuth()
+  const { user, accessToken, isAdmin } = useAuth()
   const [eventDetails, setEventDetails] = useState<OfflyEvent | null>(null)
   const [loadingEvent, setLoadingEvent] = useState(true)
   const [isBooking, setIsBooking] = useState(false)
@@ -36,15 +36,15 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
           setEventDetails({ 
             id: docSnap.id, 
             ...data,
-            // Normalizzazione campi per compatibilità web
             image: data.imageUrl || data.image || "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b",
             joinedCount,
             badgeText: data.badgeText || (joinedCount >= capacity ? "Sold Out" : undefined),
+            attendeeUIDs // Assicuriamoci di passarlo per l'admin
           } as OfflyEvent)
         }
 
         // 2. Check if user already booked this event
-        if (user) {
+        if (user && !isAdmin) { // Gli admin non controllano la propria prenotazione
           const q = query(
             collection(db, "bookings"), 
             where("userId", "==", user.uid), 
@@ -62,13 +62,15 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
       }
     }
     fetchEventData()
-  }, [id, user])
+  }, [id, user, isAdmin])
 
   const handleBooking = async () => {
     if (!user) {
       router.push('/')
       return
     }
+
+    if (isAdmin) return; // Prevent admin from booking
 
     if (!accessToken) {
       alert("Token di accesso scaduto. Per favore, effettua nuovamente l'accesso.")
@@ -79,7 +81,6 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
     try {
       if (!eventDetails) throw new Error("Evento non trovato")
 
-      // 1. Add to Google Calendar
       await addEventToGoogleCalendar(accessToken, {
         title: `Offly: ${eventDetails.title}`,
         description: eventDetails.description,
@@ -88,8 +89,6 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
         endTime: eventDetails.endTime,
       })
 
-      // 2. Add to Firestore 'bookings' AND update 'attendeeUIDs' in 'events'
-      // createBooking now handles both internally in firestore.ts
       await createBooking(user.uid, id)
       
       setIsBooked(true)
@@ -117,17 +116,6 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
         <ChevronLeft size={24} />
       </button>
 
-      {/* Mobile Top Bar */}
-      <nav className="fixed top-0 w-full z-50 glass h-16 flex items-center justify-between px-margin-page md:hidden">
-        <button onClick={() => router.back()} className="p-2 active-scale text-primary">
-          <ChevronLeft size={24} />
-        </button>
-        <h1 className="text-xl font-extrabold tracking-tighter text-primary">Dettagli</h1>
-        <button className="p-2 active-scale text-primary">
-          <Share2 size={24} />
-        </button>
-      </nav>
-
       {/* Hero Image - Desktop Left Column */}
       <div className="w-full h-[45vh] md:h-screen md:w-1/2 sticky top-0 overflow-hidden">
         <img 
@@ -142,8 +130,10 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
       <main className="flex-1 px-margin-page pt-8 pb-40 md:pt-32 md:pb-32 space-y-8 -mt-12 md:mt-0 relative z-10 md:z-auto bg-surface md:bg-transparent rounded-t-ios-xl md:rounded-none">
         {/* Header Info */}
         <header className="space-y-4">
-          <div className="inline-flex px-3 py-1 rounded-full bg-primary text-on-primary text-[10px] font-bold uppercase tracking-widest">
-            {eventDetails.type || "Evento"}
+          <div className="flex items-center gap-2">
+            <div className="inline-flex px-3 py-1 rounded-full bg-primary text-on-primary text-[10px] font-bold uppercase tracking-widest">
+              {eventDetails.type || "Evento"}
+            </div>
           </div>
           <h2 className="text-[40px] md:text-5xl lg:text-6xl font-extrabold tracking-tighter text-primary leading-tight">
             {eventDetails.title}
@@ -171,6 +161,30 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
                 {eventDetails.description}
               </p>
             </section>
+
+            {/* Admin Participants Control */}
+            {isAdmin && (
+              <section className="space-y-4 pt-4">
+                <h3 className="text-xl font-bold tracking-tight text-primary flex items-center gap-2">
+                   <Users size={20} />
+                   Partecipanti ({eventDetails.joinedCount})
+                </h3>
+                <div className="bg-surface-container-low rounded-2xl p-4 border border-outline-variant/10">
+                  {eventDetails.attendeeUIDs && eventDetails.attendeeUIDs.length > 0 ? (
+                    <ul className="space-y-2">
+                      {eventDetails.attendeeUIDs.map((uid, index) => (
+                        <li key={uid} className="text-xs font-medium text-on-surface-variant flex items-center justify-between p-2 bg-surface rounded-xl">
+                          <span>Utente {index + 1}</span>
+                          <span className="text-[8px] opacity-30">{uid}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-on-surface-variant italic">Ancora nessun iscritto.</p>
+                  )}
+                </div>
+              </section>
+            )}
           </div>
 
           <div className="space-y-8">
@@ -194,65 +208,69 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
               </p>
             </section>
             
-            {/* Desktop Action Section (Instead of sticky bar) */}
-            <div className="hidden md:flex flex-col gap-4">
-               <button 
-                disabled={isBooking || isBooked}
-                onClick={handleBooking}
-                className={cn(
-                  "w-full h-16 rounded-full font-bold text-lg flex items-center justify-center gap-2 active-scale shadow-xl transition-all",
-                  isBooked ? "bg-green-500 text-white" : "bg-primary text-on-primary shadow-black/10"
-                )}
-              >
-                {isBooking ? (
-                  <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                ) : isBooked ? (
-                  <>
-                    <span>Prenotato con successo</span>
-                    <Check size={20} />
-                  </>
-                ) : (
-                  <>
-                    <span>Iscriviti Ora</span>
-                    <Bolt size={20} fill="currentColor" />
-                  </>
-                )}
-              </button>
-            </div>
+            {/* Action Buttons - Hidden for Admin, shown for Users */}
+            {!isAdmin && (
+              <div className="hidden md:flex flex-col gap-4">
+                 <button 
+                  disabled={isBooking || isBooked}
+                  onClick={handleBooking}
+                  className={cn(
+                    "w-full h-16 rounded-full font-bold text-lg flex items-center justify-center gap-2 active-scale shadow-xl transition-all",
+                    isBooked ? "bg-green-500 text-white" : "bg-primary text-on-primary shadow-black/10"
+                  )}
+                >
+                  {isBooking ? (
+                    <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : isBooked ? (
+                    <>
+                      <span>Prenotato con successo</span>
+                      <Check size={20} />
+                    </>
+                  ) : (
+                    <>
+                      <span>Iscriviti Ora</span>
+                      <Bolt size={20} fill="currentColor" />
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </main>
 
-      {/* Sticky Bottom Action Bar (Mobile Only) */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 p-margin-page glass border-t border-surface-container md:hidden">
-        <div className="max-w-md mx-auto flex gap-4">
-          <button 
-            disabled={isBooking || isBooked}
-            onClick={handleBooking}
-            className={cn(
-              "flex-1 h-16 rounded-full font-bold text-lg flex items-center justify-center gap-2 active-scale shadow-xl transition-all",
-              isBooked ? "bg-green-500 text-white" : "bg-primary text-on-primary shadow-black/10"
-            )}
-          >
-            {isBooking ? (
-              <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            ) : isBooked ? (
-              <>
-                <span>Prenotato!</span>
-                <Check size={20} />
-              </>
-            ) : (
-              <>
-                <span>Iscriviti</span>
-                <Bolt size={20} fill="currentColor" />
-              </>
-            )}
-          </button>
-          <button className="w-16 h-16 rounded-full border-2 border-primary text-primary flex items-center justify-center active-scale">
-            <Heart size={24} />
-          </button>
+      {/* Sticky Bottom Action Bar (Mobile Only) - Hidden for Admin */}
+      {!isAdmin && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 p-margin-page glass border-t border-surface-container md:hidden">
+          <div className="max-w-md mx-auto flex gap-4">
+            <button 
+              disabled={isBooking || isBooked}
+              onClick={handleBooking}
+              className={cn(
+                "flex-1 h-16 rounded-full font-bold text-lg flex items-center justify-center gap-2 active-scale shadow-xl transition-all",
+                isBooked ? "bg-green-500 text-white" : "bg-primary text-on-primary shadow-black/10"
+              )}
+            >
+              {isBooking ? (
+                <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : isBooked ? (
+                <>
+                  <span>Prenotato!</span>
+                  <Check size={20} />
+                </>
+              ) : (
+                <>
+                  <span>Iscriviti</span>
+                  <Bolt size={20} fill="currentColor" />
+                </>
+              )}
+            </button>
+            <button className="w-16 h-16 rounded-full border-2 border-primary text-primary flex items-center justify-center active-scale">
+              <Heart size={24} />
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
