@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react"
 import { Plus, Users, Calendar, Activity, ChevronLeft, Save, Loader2 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useRouter } from "next/navigation"
-import { addEvent } from "@/lib/firestore"
+import { addEvent, getEvents } from "@/lib/firestore"
 import { useAuth } from "@/context/AuthContext"
 import LoadingScreen from "@/components/LoadingScreen"
 import PageTransition from "@/components/PageTransition"
@@ -88,10 +88,24 @@ export default function AdminPage() {
     }
   }
 
+  const [eventCount, setEventCount] = useState(0)
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const events = await getEvents()
+        setEventCount(events.length)
+      } catch (err) {
+        console.error(err)
+      }
+    }
+    fetchStats()
+  }, [])
+
   const stats = [
-    { icon: <Users size={24} />, label: "Iscritti", value: "128" },
-    { icon: <Calendar size={24} />, label: "Eventi", value: "12" },
-    { icon: <Activity size={24} />, label: "Check-in", value: "85%" },
+    { icon: <Users size={24} />, label: "Utenti Totali", value: "1" }, // In produzione si fetcherebbe il count utenti
+    { icon: <Calendar size={24} />, label: "Eventi Creati", value: eventCount.toString() },
+    { icon: <Activity size={24} />, label: "Status Sistema", value: "Online" },
   ]
 
   return (

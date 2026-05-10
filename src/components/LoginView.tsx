@@ -6,7 +6,7 @@ import { LogIn, UserPlus, Mail, Lock, User, Loader2, ArrowRight } from "lucide-r
 import { motion, AnimatePresence } from "framer-motion"
 
 export default function LoginView() {
-  const { loginWithGoogle, signUpWithEmail, signInWithEmail, loginAsGuest, loginAsAdmin } = useAuth()
+  const { loginWithGoogle, signUpWithEmail, signInWithEmail } = useAuth()
   const [isSignUp, setIsSignUp] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -141,16 +141,7 @@ export default function LoginView() {
             </button>
           </form>
 
-          <div className="mt-8 space-y-6">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-outline-variant/30"></div>
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-surface px-4 text-on-surface-variant font-bold tracking-widest">Oppure</span>
-              </div>
-            </div>
-
+          <div className="mt-8 space-y-4">
             <button
               onClick={loginWithGoogle}
               className="w-full h-14 bg-surface border border-outline-variant/30 text-primary rounded-full font-bold flex items-center justify-center gap-3 active-scale hover:bg-surface-container-low transition-all"
@@ -158,21 +149,6 @@ export default function LoginView() {
               <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
               Continua con Google
             </button>
-
-            <div className="grid grid-cols-2 gap-4">
-              <button
-                onClick={loginAsGuest}
-                className="h-12 bg-surface-container-low text-primary rounded-full font-bold flex items-center justify-center gap-2 active-scale transition-all border border-outline-variant/10 text-xs"
-              >
-                Ospite
-              </button>
-              <button
-                onClick={loginAsAdmin}
-                className="h-12 bg-surface-container-low text-primary rounded-full font-bold flex items-center justify-center gap-2 active-scale transition-all border border-outline-variant/10 text-xs"
-              >
-                Organizzatore
-              </button>
-            </div>
 
             <p className="text-center text-sm font-medium text-on-surface-variant">
               {isSignUp ? "Hai già un account?" : "Non hai un account?"}{" "}

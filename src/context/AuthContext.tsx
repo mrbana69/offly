@@ -14,8 +14,6 @@ interface AuthContextType {
   loginWithGoogle: () => Promise<void>
   signUpWithEmail: (email: string, password: string, name: string) => Promise<void>
   signInWithEmail: (email: string, password: string) => Promise<void>
-  loginAsGuest: () => void
-  loginAsAdmin: () => void
   logout: () => Promise<void>
 }
 
@@ -87,43 +85,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  useEffect(() => {
-    const savedGuest = sessionStorage.getItem("offly_guest")
-    if (savedGuest && !user) {
-      setUser(JSON.parse(savedGuest))
-      setAccessToken("mock_token")
-    }
-  }, [user])
-
-  const loginAsGuest = () => {
-    const guestUser = {
-      uid: "guest",
-      displayName: "Guest User",
-      email: "guest@offly.club",
-      photoURL: "https://api.dicebear.com/7.x/avataaars/svg?seed=guest",
-    }
-    setUser(guestUser as any)
-    setAccessToken("mock_token")
-    sessionStorage.setItem("offly_guest", JSON.stringify(guestUser))
-  }
-
-  const loginAsAdmin = () => {
-    const adminUser = {
-      uid: "admin",
-      displayName: "Emiliano Admin",
-      email: "emiliano@offly.club",
-      photoURL: "https://api.dicebear.com/7.x/avataaars/svg?seed=admin",
-    }
-    setUser(adminUser as any)
-    setAccessToken("mock_admin_token")
-    sessionStorage.setItem("offly_guest", JSON.stringify(adminUser)) // Store it too for simplicity
-  }
-
   const logout = async () => {
     try {
       setUser(null)
       setAccessToken(null)
-      sessionStorage.removeItem("offly_guest")
       await signOut(auth)
     } catch (error) {
       console.error("Error signing out", error)
@@ -131,7 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, accessToken, isAdmin, isDarkMode, toggleDarkMode, loginWithGoogle, signUpWithEmail, signInWithEmail, loginAsGuest, loginAsAdmin, logout }}>
+    <AuthContext.Provider value={{ user, loading, accessToken, isAdmin, isDarkMode, toggleDarkMode, loginWithGoogle, signUpWithEmail, signInWithEmail, logout }}>
       {children}
     </AuthContext.Provider>
   )
