@@ -27,8 +27,8 @@ export default function HomePage() {
     const fetchEvents = async () => {
       try {
         const data = await getEvents()
-        // Prendi solo i primi 3 per la home
-        setEvents(data.slice(0, 3))
+        // Prendi solo i primi 2 (i più recenti) per la home
+        setEvents(data.slice(0, 2))
       } catch (error) {
         console.error(error)
       } finally {

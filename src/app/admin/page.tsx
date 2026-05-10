@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react"
 import { Plus, Users, Calendar, Activity, ChevronLeft, Save, Loader2 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useRouter } from "next/navigation"
-import { addEvent, getEvents } from "@/lib/firestore"
+import { addEvent, getEvents, OfflyEvent } from "@/lib/firestore"
 import { useAuth } from "@/context/AuthContext"
 import LoadingScreen from "@/components/LoadingScreen"
 import PageTransition from "@/components/PageTransition"
@@ -28,8 +28,29 @@ export default function AdminPage() {
     time: "",
     description: "",
     type: "Workshop",
-    capacity: 20
+    capacity: 20,
+    image: "" // Nuovo campo immagine
   })
+
+  const [events, setEvents] = useState<OfflyEvent[]>([])
+  const [loadingEvents, setLoadingEvents] = useState(true)
+
+  const fetchEventsData = async () => {
+    setLoadingEvents(true)
+    try {
+      const data = await getEvents()
+      setEvents(data)
+      setEventCount(data.length)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoadingEvents(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchEventsData()
+  }, [])
 
   if (loading) return <LoadingScreen />
   if (!isAdmin) return null
@@ -43,7 +64,6 @@ export default function AdminPage() {
     setIsSaving(true)
     try {
       const startTime = `${formData.date}T${formData.time}:00`
-      // Default duration 1h
       const [h, m] = formData.time.split(':')
       const endTime = `${formData.date}T${(parseInt(h) + 1).toString().padStart(2, '0')}:${m}:00`
       
@@ -56,21 +76,14 @@ export default function AdminPage() {
         type: formData.type,
         capacity: Number(formData.capacity) || 20,
         joinedCount: 0,
-        image: "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?q=80&w=2020&auto=format&fit=crop"
+        image: formData.image || "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?q=80&w=2020&auto=format&fit=crop"
       }
 
-      console.log("Saving event:", eventData)
-      
-      const savePromise = addEvent(eventData)
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error("Timeout: Il server non risponde")), 10000)
-      )
-
-      await Promise.race([savePromise, timeoutPromise])
+      await addEvent(eventData)
       
       setIsAddingEvent(false)
       alert("Evento creato con successo!")
-      // Reset form
+      fetchEventsData() // Ricarica la lista
       setFormData({
         title: "",
         location: "",
@@ -78,7 +91,8 @@ export default function AdminPage() {
         time: "",
         description: "",
         type: "Workshop",
-        capacity: 20
+        capacity: 20,
+        image: ""
       })
     } catch (error: any) {
       console.error("Save error:", error)
@@ -88,23 +102,9 @@ export default function AdminPage() {
     }
   }
 
-  const [eventCount, setEventCount] = useState(0)
-
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const events = await getEvents()
-        setEventCount(events.length)
-      } catch (err) {
-        console.error(err)
-      }
-    }
-    fetchStats()
-  }, [])
-
   const stats = [
-    { icon: <Users size={24} />, label: "Utenti Totali", value: "1" }, // In produzione si fetcherebbe il count utenti
-    { icon: <Calendar size={24} />, label: "Eventi Creati", value: eventCount.toString() },
+    { icon: <Users size={24} />, label: "Utenti Totali", value: "1" },
+    { icon: <Calendar size={24} />, label: "Eventi Creati", value: events.length.toString() },
     { icon: <Activity size={24} />, label: "Status Sistema", value: "Online" },
   ]
 
@@ -182,6 +182,16 @@ export default function AdminPage() {
                         className="w-full h-14 bg-surface rounded-2xl px-6 border border-outline-variant/20 focus:border-primary outline-none font-medium transition-all" 
                       />
                     </div>
+                    <div className="space-y-1 md:col-span-2">
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant ml-1">URL Immagine (Opzionale)</label>
+                      <input 
+                        type="text" 
+                        value={formData.image}
+                        onChange={(e) => setFormData({...formData, image: e.target.value})}
+                        placeholder="https://images.unsplash.com/..." 
+                        className="w-full h-14 bg-surface rounded-2xl px-6 border border-outline-variant/20 focus:border-primary outline-none font-medium transition-all" 
+                      />
+                    </div>
                   </div>
                   <div className="flex gap-4 pt-4 md:max-w-md">
                     <button 
@@ -226,26 +236,43 @@ export default function AdminPage() {
                   {/* Quick Actions */}
                   <section className="space-y-4">
                     <h2 className="text-xl font-bold tracking-tight px-2">Azioni Rapide</h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4">
+                    <div className="grid grid-cols-1 gap-4">
                       <button onClick={() => setIsAddingEvent(true)} className="flex items-center gap-4 p-6 bg-primary text-on-primary rounded-2xl active-scale shadow-lg">
                         <Plus size={24} />
                         <span className="font-bold text-lg">Nuovo Evento</span>
                       </button>
-                      <button className="flex items-center gap-4 p-6 bg-surface-container-low text-primary rounded-2xl active-scale border border-outline-variant/10">
-                        <Users size={24} />
-                        <span className="font-bold text-lg">Gestisci Utenti</span>
-                      </button>
                     </div>
                   </section>
                   
-                  {/* Recent Events List Placeholder */}
+                  {/* Events List */}
                   <section className="space-y-4 pb-8">
-                     <h2 className="text-xl font-bold tracking-tight px-2">Eventi Recenti</h2>
-                     <div className="p-12 text-center bg-surface-container-low rounded-ios-lg border-2 border-dashed border-outline-variant/30 flex flex-col items-center justify-center gap-2">
-                        <Calendar size={32} className="text-on-surface-variant opacity-20 mb-2" />
-                        <p className="text-on-surface-variant text-sm font-medium">Nessun evento recente da mostrare.</p>
-                        <button onClick={() => setIsAddingEvent(true)} className="text-primary font-bold text-xs mt-2 underline">Crea il primo evento</button>
-                     </div>
+                     <h2 className="text-xl font-bold tracking-tight px-2">I tuoi eventi</h2>
+                     {loadingEvents ? (
+                       <div className="flex justify-center py-10">
+                         <Loader2 className="animate-spin text-primary opacity-20" size={32} />
+                       </div>
+                     ) : events.length === 0 ? (
+                       <div className="p-12 text-center bg-surface-container-low rounded-ios-lg border-2 border-dashed border-outline-variant/30 flex flex-col items-center justify-center gap-2">
+                          <Calendar size={32} className="text-on-surface-variant opacity-20 mb-2" />
+                          <p className="text-on-surface-variant text-sm font-medium">Nessun evento creato.</p>
+                          <button onClick={() => setIsAddingEvent(true)} className="text-primary font-bold text-xs mt-2 underline">Crea il primo evento</button>
+                       </div>
+                     ) : (
+                       <div className="space-y-3">
+                         {events.map((event) => (
+                           <div key={event.id} className="flex items-center justify-between p-5 bg-surface-container-low rounded-2xl border border-outline-variant/10 shadow-sm">
+                             <div className="flex flex-col">
+                               <span className="font-bold text-primary">{event.title}</span>
+                               <span className="text-xs text-on-surface-variant font-medium">{event.location}</span>
+                             </div>
+                             <div className="flex items-center gap-2 px-4 py-2 bg-surface rounded-full border border-outline-variant/5">
+                               <Users size={14} className="text-primary" />
+                               <span className="text-sm font-black">{event.joinedCount}</span>
+                             </div>
+                           </div>
+                         ))}
+                       </div>
+                     )}
                   </section>
                 </div>
               </motion.div>
