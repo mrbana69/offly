@@ -78,21 +78,34 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
     if (!user) { router.push('/'); return; }
     if (isAdmin) return;
     if (!accessToken) { alert("Token scaduto, effettua il login."); return; }
+    
     setIsBooking(true)
     try {
       if (!eventDetails) throw new Error("Evento non trovato")
+
+      // FIX CALENDAR: Convertiamo i timestamp in ISO string pulite
+      const startISO = eventDetails.startTime.toDate 
+        ? eventDetails.startTime.toDate().toISOString() 
+        : new Date(eventDetails.startTime).toISOString();
+      
+      const endISO = eventDetails.endTime.toDate 
+        ? eventDetails.endTime.toDate().toISOString() 
+        : new Date(eventDetails.endTime).toISOString();
+
       await addEventToGoogleCalendar(accessToken, {
         title: `Offly: ${eventDetails.title}`,
         description: eventDetails.description,
         location: eventDetails.location,
-        startTime: eventDetails.startTime,
-        endTime: eventDetails.endTime,
+        startTime: startISO,
+        endTime: endISO,
       })
+
       await createBooking(user.uid, id)
       setIsBooked(true)
-      alert("Prenotato!")
-    } catch (error) {
-      console.error(error); alert("Errore prenotazione.");
+      alert("Prenotazione completata e aggiunta al tuo Google Calendar!")
+    } catch (error: any) {
+      console.error("Calendar Error Details:", error);
+      alert(`Errore durante la prenotazione: ${error.message}`);
     } finally { setIsBooking(false) }
   }
 
@@ -204,7 +217,6 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
               <p className="text-on-surface-variant leading-relaxed">{eventDetails.description}</p>
             </section>
 
-            {/* Recensioni Section */}
             <section className="space-y-6 pt-4">
                <div className="flex items-center justify-between">
                   <h3 className="text-xl font-bold tracking-tight text-primary flex items-center gap-2"><Star size={20} className="text-amber-400 fill-amber-400" /> Recensioni ({reviews.length})</h3>
