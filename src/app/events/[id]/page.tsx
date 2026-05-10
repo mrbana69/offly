@@ -28,7 +28,19 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
         const docRef = doc(db, "events", id)
         const docSnap = await getDoc(docRef)
         if (docSnap.exists()) {
-          setEventDetails({ id: docSnap.id, ...docSnap.data() } as OfflyEvent)
+          const data = docSnap.data();
+          const attendeeUIDs = data.attendeeUIDs || [];
+          const joinedCount = data.attendeeUIDs ? attendeeUIDs.length : (data.joinedCount || 0);
+          const capacity = data.capacity || 20;
+
+          setEventDetails({ 
+            id: docSnap.id, 
+            ...data,
+            // Normalizzazione campi per compatibilità web
+            image: data.imageUrl || data.image || "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b",
+            joinedCount,
+            badgeText: data.badgeText || (joinedCount >= capacity ? "Sold Out" : undefined),
+          } as OfflyEvent)
         }
 
         // 2. Check if user already booked this event
@@ -76,7 +88,8 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
         endTime: eventDetails.endTime,
       })
 
-      // 2. Add to Firestore 'bookings'
+      // 2. Add to Firestore 'bookings' AND update 'attendeeUIDs' in 'events'
+      // createBooking now handles both internally in firestore.ts
       await createBooking(user.uid, id)
       
       setIsBooked(true)
@@ -130,7 +143,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
         {/* Header Info */}
         <header className="space-y-4">
           <div className="inline-flex px-3 py-1 rounded-full bg-primary text-on-primary text-[10px] font-bold uppercase tracking-widest">
-            {eventDetails.type}
+            {eventDetails.type || "Evento"}
           </div>
           <h2 className="text-[40px] md:text-5xl lg:text-6xl font-extrabold tracking-tighter text-primary leading-tight">
             {eventDetails.title}
@@ -177,7 +190,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
                 />
               </div>
               <p className="text-sm text-on-surface-variant italic">
-                Affrettati, restano solo pochi posti per questo evento esclusivo.
+                {eventDetails.badgeText || "Affrettati, restano solo pochi posti per questo evento esclusivo."}
               </p>
             </section>
             

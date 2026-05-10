@@ -74,11 +74,10 @@ export default function AdminPage() {
         description: formData.description || "Nessuna descrizione fornita.",
         type: formData.type,
         capacity: Number(formData.capacity) || 20,
-        joinedCount: 0,
-        image: formData.image || "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?q=80&w=2020&auto=format&fit=crop"
+        imageUrl: formData.image || "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b"
       }
 
-      await addEvent(eventData)
+      await addEvent(eventData as any)
       
       setIsAddingEvent(false)
       alert("Evento creato con successo!")
