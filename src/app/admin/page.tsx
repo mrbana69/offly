@@ -40,7 +40,6 @@ export default function AdminPage() {
     try {
       const data = await getEvents()
       setEvents(data)
-      setEventCount(data.length)
     } catch (err) {
       console.error(err)
     } finally {
