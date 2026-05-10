@@ -16,10 +16,12 @@ export default function AdminLoginPage() {
 
   // Redirect if already admin
   React.useEffect(() => {
-    if (user && isAdmin) {
-      router.push("/admin")
+    if (user && !authLoading) {
+      if (isAdmin) {
+        router.push("/admin")
+      }
     }
-  }, [user, isAdmin, router])
+  }, [user, isAdmin, authLoading, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -27,14 +29,21 @@ export default function AdminLoginPage() {
     setError("")
     try {
       await signInWithEmail(formData.email, formData.password)
-      // Check if the user is actually an admin after login
-      // Note: isAdmin is calculated in AuthContext based on email
+      // Il redirect avverrà tramite l'useEffect sopra se isAdmin è true
+      // Ma dobbiamo gestire il caso in cui il login ha successo ma l'utente NON è admin
     } catch (err: any) {
-      setError("Credenziali non valide o accesso non autorizzato.")
+      setError("Credenziali non valide.")
     } finally {
       setLoading(false)
     }
   }
+
+  // Monitora se l'utente si è loggato ma non è admin
+  React.useEffect(() => {
+    if (user && !authLoading && !isAdmin) {
+      setError("Accesso negato: questa email non è autorizzata come organizzatore.")
+    }
+  }, [user, isAdmin, authLoading])
 
   return (
     <PageTransition>

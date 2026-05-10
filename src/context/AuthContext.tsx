@@ -2,7 +2,8 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react"
 import { onAuthStateChanged, User, signInWithPopup, signOut, GoogleAuthProvider, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from "firebase/auth"
-import { auth, googleProvider } from "@/lib/firebase"
+import { auth, googleProvider, db } from "@/lib/firebase"
+import { doc, getDoc, setDoc } from "firebase/firestore"
 
 interface AuthContextType {
   user: User | null
@@ -45,12 +46,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const adminEmails = ["admin@offly.club", "emiliano@offly.club"] // Aggiungi qui gli email admin
-  const isAdmin = user ? adminEmails.includes(user.email || "") : false
+  const [isAdmin, setIsAdmin] = useState(false)
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user)
+      if (user) {
+        // Fetch user role from Firestore
+        try {
+          const userDoc = await getDoc(doc(db, "users", user.uid))
+          if (userDoc.exists() && userDoc.data().role === "admin") {
+            setIsAdmin(true)
+          } else {
+            setIsAdmin(false)
+          }
+        } catch (error) {
+          console.error("Error fetching user role:", error)
+          setIsAdmin(false)
+        }
+      } else {
+        setIsAdmin(false)
+      }
       setLoading(false)
     })
     return () => unsubscribe()
@@ -62,6 +78,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const credential = GoogleAuthProvider.credentialFromResult(result)
       const token = credential?.accessToken || null
       setAccessToken(token)
+
+      // Create user doc if not exists
+      await setDoc(doc(db, "users", result.user.uid), {
+        uid: result.user.uid,
+        email: result.user.email,
+        displayName: result.user.displayName,
+        photoURL: result.user.photoURL,
+        lastLogin: new Date().toISOString(),
+      }, { merge: true })
     } catch (error) {
       console.error("Error signing in with Google", error)
     }
@@ -71,6 +96,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const result = await createUserWithEmailAndPassword(auth, email, password)
       await updateProfile(result.user, { displayName: name })
+      
+      // Create user doc
+      await setDoc(doc(db, "users", result.user.uid), {
+        uid: result.user.uid,
+        email: result.user.email,
+        displayName: name,
+        role: "user", // Default role
+        createdAt: new Date().toISOString(),
+      })
+
       setUser({ ...result.user, displayName: name })
     } catch (error: any) {
       throw error
