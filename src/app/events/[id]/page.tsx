@@ -23,7 +23,6 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   const [isBooking, setIsBooking] = useState(false)
   const [isBooked, setIsBooked] = useState(false)
   
-  // State per nuova recensione
   const [showReviewForm, setShowReviewForm] = useState(false)
   const [rating, setRating] = useState(5)
   const [comment, setComment] = useState("")
@@ -50,8 +49,6 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
           } as OfflyEvent;
 
           setEventDetails(normalizedEvent)
-
-          // Fetch reviews
           const reviewsData = await getReviews(id)
           setReviews(reviewsData)
 
@@ -148,11 +145,22 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
     } finally { setIsSubmittingReview(false) }
   }
 
+  const handleDelete = async () => {
+    if (!confirm("Eliminare definitivamente questo evento?")) return
+    try {
+      await deleteEvent(id)
+      router.push('/admin')
+    } catch (err) {
+      alert("Errore durante l'eliminazione.")
+    }
+  }
+
   if (loadingEvent) return <LoadingScreen />
   if (!eventDetails) return <div>Evento non trovato</div>
 
   const isEventOver = eventDetails.endTime.toDate ? eventDetails.endTime.toDate() < new Date() : new Date(eventDetails.endTime) < new Date();
   const canReview = isBooked && isEventOver && !reviews.some(r => r.userId === user?.uid);
+  const progressValue = (eventDetails.joinedCount / eventDetails.capacity) * 100
 
   return (
     <div className="flex-1 flex flex-col bg-surface overflow-x-hidden md:flex-row md:items-start relative pb-20">
@@ -176,6 +184,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
               {isAdmin && (
                 <>
                   <button onClick={exportToCSV} className="p-3 bg-green-50 text-green-600 rounded-full active-scale transition-colors hover:bg-green-100 shadow-sm"><Download size={20} /></button>
+                  <button onClick={handleDelete} className="p-3 bg-red-50 text-red-600 rounded-full active-scale transition-colors hover:bg-red-100 shadow-sm"><Trash2 size={20} /></button>
                   <button onClick={() => router.push('/admin')} className="p-3 bg-primary text-on-primary rounded-full active-scale shadow-lg"><Edit3 size={20} /></button>
                 </>
               )}
@@ -195,19 +204,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
               <p className="text-on-surface-variant leading-relaxed">{eventDetails.description}</p>
             </section>
 
-            {/* Mappa */}
-            <section className="space-y-4">
-               <h3 className="text-xl font-bold tracking-tight text-primary">Posizione</h3>
-               <div className="w-full h-64 bg-surface-container rounded-2xl overflow-hidden relative border border-outline-variant/10 shadow-sm">
-                  <iframe 
-                    width="100%" height="100%" frameBorder="0" style={{ border: 0 }}
-                    src={`https://www.google.com/maps/embed/v1/place?key=${process.env.NEXT_PUBLIC_FIREBASE_API_KEY}&q=${encodeURIComponent(eventDetails.location)}`}
-                    allowFullScreen
-                  />
-               </div>
-            </section>
-
-            {/* Recensioni */}
+            {/* Recensioni Section */}
             <section className="space-y-6 pt-4">
                <div className="flex items-center justify-between">
                   <h3 className="text-xl font-bold tracking-tight text-primary flex items-center gap-2"><Star size={20} className="text-amber-400 fill-amber-400" /> Recensioni ({reviews.length})</h3>
@@ -266,7 +263,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
                 <span className="text-2xl font-black text-primary">{eventDetails.joinedCount}/{eventDetails.capacity}</span>
               </div>
               <div className="h-2 w-full bg-surface-container rounded-full overflow-hidden">
-                <motion.div initial={{ width: 0 }} animate={{ width: `${(eventDetails.joinedCount/eventDetails.capacity)*100}%` }} className="h-full bg-primary rounded-full" />
+                <motion.div initial={{ width: 0 }} animate={{ width: `${progressValue}%` }} className="h-full bg-primary rounded-full" />
               </div>
               <p className="text-sm text-on-surface-variant italic">{eventDetails.badgeText || "Affrettati!"}</p>
             </section>
