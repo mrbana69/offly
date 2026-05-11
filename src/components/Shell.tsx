@@ -2,6 +2,7 @@
 
 import React from "react"
 import SideNavigation from "./SideNavigation"
+import FloatingTabBar from "./FloatingTabBar"
 import { useAuth } from "@/context/AuthContext"
 import LoadingScreen from "./LoadingScreen"
 import { usePathname, useRouter } from "next/navigation"
