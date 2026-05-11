@@ -10,8 +10,8 @@ export default function FloatingTabBar() {
   const pathname = usePathname()
   const { isAdmin } = useAuth()
 
-  // Hide the tab bar on event detail pages
-  if (pathname.startsWith("/events/")) {
+  // Hide the tab bar on all event-related pages (list and details)
+  if (pathname.startsWith("/events")) {
     return null
   }
 
