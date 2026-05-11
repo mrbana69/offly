@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { useAuth } from "@/context/AuthContext"
 import { addEventToGoogleCalendar, addEventToGoogleCalendarWithRefresh } from "@/lib/calendar"
 import { cn, formatDate } from "@/lib/utils"
-import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore"
+import { doc, getDoc, collection, query, where, getDocs, deleteDoc, updateDoc, arrayRemove } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { createBooking, OfflyEvent, deleteEvent, getUsersByIds, addReview, getReviews, Review } from "@/lib/firestore"
 import LoadingScreen from "@/components/LoadingScreen"
@@ -173,25 +173,52 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
     document.body.removeChild(link);
   }
 
-  const handleReviewSubmit = async () => {
-    if (!user || !eventDetails) return;
-    setIsSubmittingReview(true)
+  const handleCancelBooking = async () => {
+    if (!user) return;
+    if (!confirm("Vuoi davvero annullare la prenotazione per questo evento?")) return;
+    
+    setIsBooking(true);
     try {
-      await addReview({
-        eventId: id,
-        userId: user.uid,
-        userName: user.displayName || "Anonimo",
-        rating,
-        comment
-      })
-      setComment("")
-      setShowReviewForm(false)
-      const updatedReviews = await getReviews(id)
-      setReviews(updatedReviews)
-      alert("Recensione pubblicata!")
-    } catch (err) {
-      console.error(err); alert("Errore invio recensione.");
-    } finally { setIsSubmittingReview(false) }
+      // Remove booking from Firestore
+      const q = query(collection(db, "bookings"), where("userId", "==", user.uid), where("eventId", "==", id));
+      const bookingSnap = await getDocs(q);
+      
+      if (!bookingSnap.empty) {
+        const bookingDoc = bookingSnap.docs[0];
+        await deleteDoc(doc(db, "bookings", bookingDoc.id));
+        
+        // Update event attendeeUIDs
+        const eventRef = doc(db, "events", id);
+        await updateDoc(eventRef, {
+          attendeeUIDs: arrayRemove(user.uid)
+        });
+        
+        setIsBooked(false);
+        alert("Prenotazione annullata con successo!");
+        
+        // Refresh event data to update counts
+        const docRef = doc(db, "events", id);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          const attendeeUIDs = data.attendeeUIDs || [];
+          const joinedCount = attendeeUIDs.length;
+          const capacity = data.capacity || 20;
+          
+          setEventDetails(prev => prev ? {
+            ...prev,
+            joinedCount,
+            attendeeUIDs,
+            badgeText: joinedCount >= capacity ? "Sold Out" : undefined
+          } : null);
+        }
+      }
+    } catch (error: any) {
+      console.error("Cancel booking error:", error);
+      alert(`Errore durante l'annullamento: ${error.message}`);
+    } finally {
+      setIsBooking(false);
+    }
   }
 
   const handleDelete = async () => {
@@ -334,17 +361,32 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
             )}
 
             {!isAdmin && (
-              <div className="pt-8 pb-12">
-                <button 
-                  disabled={isBooking || isBooked} 
-                  onClick={handleBooking} 
-                  className={cn(
-                    "w-full h-16 rounded-full font-bold text-lg flex items-center justify-center gap-2 active-scale shadow-xl transition-all", 
-                    isBooked ? "bg-green-500 text-white" : "bg-primary text-on-primary shadow-black/10"
-                  )}
-                >
-                  {isBooking ? <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" /> : isBooked ? <><Check size={20} /> Prenotato</> : <><Bolt size={20} fill="currentColor" /> Iscriviti Ora</>}
-                </button>
+              <div className="pt-8 pb-12 space-y-4">
+                {isBooked ? (
+                  <div className="space-y-3">
+                    <button 
+                      disabled={true} 
+                      className="w-full h-16 rounded-full font-bold text-lg flex items-center justify-center gap-2 bg-green-500 text-white shadow-xl"
+                    >
+                      <Check size={20} /> Prenotato
+                    </button>
+                    <button 
+                      onClick={handleCancelBooking}
+                      disabled={isBooking}
+                      className="w-full h-12 rounded-full font-bold text-sm flex items-center justify-center gap-2 bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 active-scale transition-all"
+                    >
+                      {isBooking ? <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" /> : "Annulla Prenotazione"}
+                    </button>
+                  </div>
+                ) : (
+                  <button 
+                    disabled={isBooking} 
+                    onClick={handleBooking} 
+                    className="w-full h-16 rounded-full font-bold text-lg flex items-center justify-center gap-2 active-scale shadow-xl transition-all bg-primary text-on-primary shadow-black/10"
+                  >
+                    {isBooking ? <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <><Bolt size={20} fill="currentColor" /> Iscriviti Ora</>}
+                  </button>
+                )}
               </div>
             )}
           </div>
