@@ -118,7 +118,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
       }
     } catch (error: any) {
       console.error("Booking Error Details:", error);
-      alert(`Errore durante la prenotazione: ${error.message}`);
+      alert(`Errore durante la prenotazione [V2]: ${error.message}`);
     } finally { setIsBooking(false) }
   }
 
@@ -190,7 +190,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
 
   return (
     <div className="flex-1 flex flex-col bg-surface overflow-x-hidden md:flex-row md:items-start relative pb-0">
-      <button onClick={() => router.back()} className="hidden md:flex fixed top-8 left-8 z-[60] w-12 h-12 bg-white/80 backdrop-blur-md rounded-full items-center justify-center text-primary shadow-lg active-scale hover:bg-white transition-all border border-black/5">
+      <button onClick={() => router.back()} className="flex fixed top-6 left-6 z-[60] w-12 h-12 bg-white/80 backdrop-blur-md rounded-full items-center justify-center text-primary shadow-lg active-scale hover:bg-white transition-all border border-black/5">
         <ChevronLeft size={24} />
       </button>
 
@@ -311,8 +311,15 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
             )}
 
             {!isAdmin && (
-              <div className="pt-4 pb-12 md:pb-0">
-                <button disabled={isBooking || isBooked} onClick={handleBooking} className={cn("w-full h-16 rounded-full font-bold text-lg flex items-center justify-center gap-2 active-scale shadow-xl transition-all", isBooked ? "bg-green-500 text-white" : "bg-primary text-on-primary shadow-black/10")}>
+              <div className="pt-8 pb-12">
+                <button 
+                  disabled={isBooking || isBooked} 
+                  onClick={handleBooking} 
+                  className={cn(
+                    "w-full h-16 rounded-full font-bold text-lg flex items-center justify-center gap-2 active-scale shadow-xl transition-all", 
+                    isBooked ? "bg-green-500 text-white" : "bg-primary text-on-primary shadow-black/10"
+                  )}
+                >
                   {isBooking ? <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" /> : isBooked ? <><Check size={20} /> Prenotato</> : <><Bolt size={20} fill="currentColor" /> Iscriviti Ora</>}
                 </button>
               </div>

@@ -36,6 +36,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Load persisted access token
     const savedToken = localStorage.getItem("google_access_token")
     if (savedToken) {
+      console.log("Found persisted Google token");
       setAccessToken(savedToken)
     }
   }, [])

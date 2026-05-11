@@ -10,6 +10,11 @@ export default function FloatingTabBar() {
   const pathname = usePathname()
   const { isAdmin } = useAuth()
 
+  // Hide the tab bar on event detail pages
+  if (pathname.startsWith("/events/")) {
+    return null
+  }
+
   return (
     <nav
       className="fixed bottom-8 left-1/2 -translate-x-1/2 w-[90%] max-w-md glass rounded-full border border-white/20 shadow-2xl px-6 py-3 flex justify-around items-center z-50 md:hidden"
