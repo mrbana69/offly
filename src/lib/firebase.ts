@@ -19,5 +19,10 @@ const db = app ? getFirestore(app) : null as any;
 const storage = app ? getStorage(app) : null as any;
 const googleProvider = new GoogleAuthProvider();
 googleProvider.addScope('https://www.googleapis.com/auth/calendar.events');
+// Request offline access to enable token refresh
+googleProvider.setCustomParameters({
+  access_type: 'offline',
+  prompt: 'consent',
+});
 
 export { app, auth, db, storage, googleProvider };

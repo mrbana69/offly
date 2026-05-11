@@ -9,6 +9,7 @@ interface AuthContextType {
   user: User | null
   loading: boolean
   accessToken: string | null
+  tokenExpiry: number | null
   isAdmin: boolean
   isDarkMode: boolean
   toggleDarkMode: () => void
@@ -16,6 +17,7 @@ interface AuthContextType {
   signUpWithEmail: (email: string, password: string, name: string) => Promise<void>
   signInWithEmail: (email: string, password: string) => Promise<void>
   logout: () => Promise<void>
+  refreshAccessToken: () => Promise<string | null>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -24,6 +26,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | any>(null)
   const [loading, setLoading] = useState(true)
   const [accessToken, setAccessToken] = useState<string | null>(null)
+  const [tokenExpiry, setTokenExpiry] = useState<number | null>(null) // timestamp in ms
   const [isDarkMode, setIsDarkMode] = useState(false)
 
   useEffect(() => {
@@ -33,11 +36,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       document.documentElement.classList.add("dark")
     }
     
-    // Load persisted access token
-    const savedToken = localStorage.getItem("google_access_token")
-    if (savedToken) {
-      setAccessToken(savedToken)
-    }
+    // Don't persist access tokens - they expire and aren't secure to store
+    // Tokens should only be used immediately after sign-in
   }, [])
 
   const toggleDarkMode = () => {
@@ -83,10 +83,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const result = await signInWithPopup(auth, googleProvider)
       const credential = GoogleAuthProvider.credentialFromResult(result)
       const token = credential?.accessToken || null
+      // Store token in state only temporarily - it expires after ~1 hour
+      // The token should be used immediately for Calendar API calls
+      // Do NOT persist to localStorage as expired tokens cause 401 errors
       setAccessToken(token)
-      if (token) {
-        localStorage.setItem("google_access_token", token)
-      }
+      
+      // Set token expiry (Google OAuth tokens last ~3600 seconds / 1 hour)
+      setTokenExpiry(Date.now() + 3600 * 1000)
 
       // Create user doc if not exists
       await setDoc(doc(db, "users", result.user.uid), {
@@ -133,6 +136,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setUser(null)
       setAccessToken(null)
+      setTokenExpiry(null)
       localStorage.removeItem("google_access_token")
       await signOut(auth)
     } catch (error) {
@@ -140,8 +144,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  const refreshAccessToken = async (): Promise<string | null> => {
+    if (!user) {
+      console.warn("No user logged in - cannot refresh token");
+      return null;
+    }
+
+    try {
+      console.log("Refreshing access token via backend...");
+      const response = await fetch('/api/auth/refresh-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.uid }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        console.error("Token refresh failed:", error);
+        
+        if (response.status === 401) {
+          // Refresh token expired/invalid - user needs to sign in again
+          setAccessToken(null);
+          setTokenExpiry(null);
+          alert("Your Google session has expired. Please sign in again.");
+        }
+        return null;
+      }
+
+      const data = await response.json();
+      const newToken = data.accessToken;
+      const expiresIn = data.expiresIn || 3600; // seconds
+
+      if (newToken) {
+        setAccessToken(newToken);
+        setTokenExpiry(Date.now() + expiresIn * 1000);
+        console.log("Access token refreshed successfully");
+        return newToken;
+      }
+
+      return null;
+    } catch (error) {
+      console.error("Error refreshing access token:", error);
+      return null;
+    }
+  }
+
   return (
-    <AuthContext.Provider value={{ user, loading, accessToken, isAdmin, isDarkMode, toggleDarkMode, loginWithGoogle, signUpWithEmail, signInWithEmail, logout }}>
+    <AuthContext.Provider value={{ user, loading, accessToken, tokenExpiry, isAdmin, isDarkMode, toggleDarkMode, loginWithGoogle, signUpWithEmail, signInWithEmail, logout, refreshAccessToken }}>
       {children}
     </AuthContext.Provider>
   )

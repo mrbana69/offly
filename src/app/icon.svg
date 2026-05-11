@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Offly Offline Club icon">
+  <rect width="512" height="512" fill="#ffffff"/>
+  <!-- Top head arc -->
+  <path d="M70 240C118 130 198 92 256 92s138 38 186 148l-22 24c-22-62-66-124-164-124S114 202 92 264z" fill="#000"/>
+
+  <!-- Goggles bridge + beak -->
+  <path d="M240 250c0-22 10-40 16-40s16 18 16 40c0 10-3 18-6 26 18 18 34 30 34 52 0 10-5 20-10 26-12 14-22 28-34 44-12-16-22-30-34-44-5-6-10-16-10-26 0-22 16-34 34-52-3-8-6-16-6-26z" fill="#000"/>
+  <path d="M246 222c-2 10-2 22 0 32h20c2-10 2-22 0-32z" fill="#fff"/>
+
+  <!-- Left lens -->
+  <circle cx="162" cy="312" r="118" fill="#000"/>
+  <circle cx="162" cy="312" r="86" fill="#fff"/>
+  <circle cx="162" cy="312" r="46" fill="#000"/>
+
+  <!-- Right lens -->
+  <circle cx="350" cy="312" r="118" fill="#000"/>
+  <circle cx="350" cy="312" r="86" fill="#fff"/>
+  <circle cx="350" cy="312" r="46" fill="#000"/>
+
+  <!-- Small side bumps -->
+  <circle cx="46" cy="312" r="22" fill="#000"/>
+  <circle cx="466" cy="312" r="22" fill="#000"/>
+</svg>
+

@@ -10,8 +10,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Offly",
-  description: "Minimalist Event Booking",
+  title: "Offly — Offline Club",
+  description: "Offly è l’app del nostro Offline Club: scopri gli incontri, prenota il tuo posto e ritroviamoci dal vivo.",
 };
 
 export default function RootLayout({

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { ChevronLeft, Share2, Calendar as CalendarIcon, MapPin, Users, Bolt, Heart, Check, ShieldCheck, Trash2, Edit3, Mail, Download, Star, MessageSquare } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useAuth } from "@/context/AuthContext"
-import { addEventToGoogleCalendar } from "@/lib/calendar"
+import { addEventToGoogleCalendar, addEventToGoogleCalendarWithRefresh } from "@/lib/calendar"
 import { cn, formatDate } from "@/lib/utils"
 import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore"
 import { db } from "@/lib/firebase"
@@ -15,7 +15,7 @@ import LoadingScreen from "@/components/LoadingScreen"
 export default function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
-  const { user, accessToken, isAdmin } = useAuth()
+  const { user, accessToken, tokenExpiry, isAdmin, refreshAccessToken } = useAuth()
   const [eventDetails, setEventDetails] = useState<OfflyEvent | null>(null)
   const [attendees, setAttendees] = useState<any[]>([])
   const [reviews, setReviews] = useState<Review[]>([])
@@ -82,10 +82,12 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
       if (!eventDetails) throw new Error("Evento non trovato")
 
       let calendarAdded = false;
+      let calendarError: any = null;
 
-      // Prova ad aggiungere al calendario solo se abbiamo il token
+      // Try to add to Google Calendar with automatic token refresh
       if (accessToken) {
         try {
+          console.log("Attempting to add event to Google Calendar with token refresh...");
           const startISO = eventDetails.startTime.toDate 
             ? eventDetails.startTime.toDate().toISOString() 
             : new Date(eventDetails.startTime).toISOString();
@@ -94,31 +96,52 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
             ? eventDetails.endTime.toDate().toISOString() 
             : new Date(eventDetails.endTime).toISOString();
 
-          await addEventToGoogleCalendar(accessToken, {
-            title: `Offly: ${eventDetails.title}`,
-            description: eventDetails.description,
-            location: eventDetails.location,
-            startTime: startISO,
-            endTime: endISO,
-          })
+          // Use the refresh-aware version that handles token expiry automatically
+          await addEventToGoogleCalendarWithRefresh(
+            accessToken,
+            refreshAccessToken,
+            {
+              title: `Offly: ${eventDetails.title}`,
+              description: eventDetails.description,
+              location: eventDetails.location,
+              startTime: startISO,
+              endTime: endISO,
+            },
+            tokenExpiry
+          );
+          console.log("Event successfully added to Google Calendar");
           calendarAdded = true;
-        } catch (calendarError: any) {
-          console.error("Calendar Sync Error:", calendarError);
-          // Non blocchiamo la prenotazione principale se il calendario fallisce
+        } catch (error: any) {
+          console.error("Calendar Sync Error:", error);
+          calendarError = error;
+          // Store error but continue with booking - calendar sync is optional
         }
+      } else {
+        console.log("No access token available - skipping calendar sync");
       }
 
+      // ALWAYS create the booking regardless of calendar sync success/failure
+      console.log("Creating booking in Firestore...");
       await createBooking(user.uid, id)
       setIsBooked(true)
+      console.log("Booking successfully created!");
       
+      // Show success message with appropriate notes
       if (calendarAdded) {
-        alert("Prenotazione completata e aggiunta al tuo Google Calendar!")
+        alert("✓ Prenotazione completata e aggiunta al tuo Google Calendar!")
+      } else if (calendarError) {
+        // Calendar sync failed but booking succeeded
+        if (calendarError?.message?.includes("expired")) {
+          alert("✓ Prenotazione completata!\n\nNota: Il token Google è scaduto. Per sincronizzare gli eventi futuri con il calendario, accedi di nuovo con Google.")
+        } else {
+          alert("✓ Prenotazione completata!\n\nNota: Non è stato possibile aggiungere l'evento al calendario. Puoi farlo manualmente.")
+        }
       } else {
-        alert("Prenotazione completata! (Nota: l'evento non è stato aggiunto al calendario)")
+        alert("✓ Prenotazione completata! (L'evento non è stato aggiunto al calendario)")
       }
     } catch (error: any) {
       console.error("Booking Error Details:", error);
-      alert(`Errore durante la prenotazione: ${error.message}`);
+      alert(`❌ Errore durante la prenotazione: ${error.message}`);
     } finally { setIsBooking(false) }
   }
 
