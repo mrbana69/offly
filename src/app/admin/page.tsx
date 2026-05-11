@@ -46,10 +46,14 @@ export default function AdminPage() {
   }
 
   useEffect(() => {
-    if (!loading && isAdmin) {
-      fetchEventsData()
-    } else if (!loading && !isAdmin) {
-      router.push("/home")
+    if (!loading) {
+      if (!isAdmin) {
+        // Not admin - redirect to login
+        router.push("/admin/login")
+      } else {
+        // Is admin - load events
+        fetchEventsData()
+      }
     }
   }, [isAdmin, loading, router])
 

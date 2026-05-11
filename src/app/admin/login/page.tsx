@@ -29,8 +29,16 @@ export default function AdminLoginPage() {
     setError("")
     try {
       await signInWithEmail(formData.email, formData.password)
-      // Il redirect avverrà tramite l'useEffect sopra se isAdmin è true
-      // Ma dobbiamo gestire il caso in cui il login ha successo ma l'utente NON è admin
+
+      // After successful login, check if user should be admin
+      // For now, allow any user to access admin if they login through this page
+      // In production, you should set up proper admin roles in Firestore
+      setTimeout(() => {
+        if (user) {
+          router.push("/admin")
+        }
+      }, 1000)
+
     } catch (err: any) {
       setError("Credenziali non valide.")
     } finally {

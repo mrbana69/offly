@@ -29,6 +29,44 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
+## Admin Setup
+
+To set up admin access for the application:
+
+1. **Environment Variables**: Add admin emails to your `.env.local`:
+   ```
+   NEXT_PUBLIC_ADMIN_EMAILS=admin@offly.com,your-email@example.com
+   ```
+
+2. **Create Admin User**: Run the setup script:
+   ```bash
+   node scripts/setup-admin.js
+   ```
+   This will create a new admin user in Firebase Auth and Firestore.
+
+3. **Access Admin Panel**: Visit `/admin/login` and log in with admin credentials.
+
+## Firebase Setup
+
+1. Create a Firebase project at [https://console.firebase.google.com](https://console.firebase.google.com)
+2. Enable Authentication with Email/Password provider
+3. Enable Firestore Database
+4. Enable Storage (optional, for file uploads)
+5. Copy your Firebase config to `.env.local`
+
+## Google Calendar Integration
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com)
+2. Create a new project or select existing one
+3. Enable Google Calendar API
+4. Create OAuth 2.0 credentials
+5. Add authorized redirect URIs (including your production URL)
+6. Copy credentials to `.env.local`:
+   ```
+   GOOGLE_CLIENT_ID=your_client_id
+   GOOGLE_CLIENT_SECRET=your_client_secret
+   ```
+
 ## Deploy on Vercel
 
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.

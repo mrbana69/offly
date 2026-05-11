@@ -58,17 +58,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user)
       if (user) {
-        // Fetch user role from Firestore
+        // Check if user is admin (either by role in Firestore or by email)
+        const adminEmails = process.env.NEXT_PUBLIC_ADMIN_EMAILS?.split(',') || []
+        const isEmailAdmin = adminEmails.includes(user.email || '')
+
         try {
           const userDoc = await getDoc(doc(db, "users", user.uid))
-          if (userDoc.exists() && userDoc.data().role === "admin") {
-            setIsAdmin(true)
-          } else {
-            setIsAdmin(false)
-          }
+          const isRoleAdmin = userDoc.exists() && userDoc.data().role === "admin"
+
+          setIsAdmin(isEmailAdmin || isRoleAdmin)
         } catch (error) {
           console.error("Error fetching user role:", error)
-          setIsAdmin(false)
+          // Fallback to email check only
+          setIsAdmin(isEmailAdmin)
         }
       } else {
         setIsAdmin(false)

@@ -6,8 +6,9 @@ import { ChevronLeft, Share2, Calendar as CalendarIcon, MapPin, Users, Bolt, Hea
 import { motion, AnimatePresence } from "framer-motion"
 import { useAuth } from "@/context/AuthContext"
 import { addEventToGoogleCalendar, addEventToGoogleCalendarWithRefresh } from "@/lib/calendar"
+import { generateICSContent, icsToBase64 } from "@/lib/ics"
 import { cn, formatDate } from "@/lib/utils"
-import { doc, getDoc, collection, query, where, getDocs, deleteDoc, updateDoc, arrayRemove } from "firebase/firestore"
+import { doc, getDoc, collection, query, where, getDocs, deleteDoc, updateDoc, arrayRemove, addDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { createBooking, OfflyEvent, deleteEvent, getUsersByIds, addReview, getReviews, Review } from "@/lib/firestore"
 import LoadingScreen from "@/components/LoadingScreen"
@@ -17,7 +18,12 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   const router = useRouter()
   const { user, accessToken, tokenExpiry, isAdmin, refreshAccessToken } = useAuth()
   const [eventDetails, setEventDetails] = useState<OfflyEvent | null>(null)
-  const [attendees, setAttendees] = useState<any[]>([])
+  const [attendees, setAttendees] = useState<Array<{
+    uid: string
+    displayName: string
+    email?: string
+    photoURL?: string
+  }>>([])
   const [reviews, setReviews] = useState<Review[]>([])
   const [loadingEvent, setLoadingEvent] = useState(true)
   const [isBooking, setIsBooking] = useState(false)
@@ -52,9 +58,21 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
           const reviewsData = await getReviews(id)
           setReviews(reviewsData)
 
-          if (isAdmin && attendeeUIDs.length > 0) {
+          if (attendeeUIDs.length > 0) {
             const users = await getUsersByIds(attendeeUIDs);
-            setAttendees(users);
+            const usersByUid = new Map(users.map((u: any) => [u.uid, u]));
+            const normalizedAttendees = attendeeUIDs.map((uid: string, index: number) => {
+              const attendee = usersByUid.get(uid);
+              return {
+                uid,
+                displayName: attendee?.displayName || `Membro ${index + 1}`,
+                email: attendee?.email,
+                photoURL: attendee?.photoURL,
+              };
+            });
+            setAttendees(normalizedAttendees);
+          } else {
+            setAttendees([]);
           }
         }
 
@@ -144,21 +162,110 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
       await createBooking(user.uid, id)
       setIsBooked(true)
       console.log("Booking successfully created!");
+      setEventDetails(prev => {
+        if (!prev) return prev;
+        const attendeeUIDs = prev.attendeeUIDs || [];
+        if (attendeeUIDs.includes(user.uid)) return prev;
+        return {
+          ...prev,
+          attendeeUIDs: [...attendeeUIDs, user.uid],
+          joinedCount: prev.joinedCount + 1,
+        };
+      });
+      setAttendees(prev => {
+        if (prev.some(a => a.uid === user.uid)) return prev;
+        return [
+          ...prev,
+          {
+            uid: user.uid,
+            displayName: user.displayName || "Tu",
+            email: user.email || undefined,
+            photoURL: user.photoURL || undefined,
+          },
+        ];
+      });
+
+      // Send confirmation email with ICS attachment using Firebase Trigger Email
+      try {
+        console.log("Sending confirmation email...");
+        const startISO = eventDetails.startTime.toDate
+          ? eventDetails.startTime.toDate().toISOString()
+          : new Date(eventDetails.startTime).toISOString();
+
+        const endISO = eventDetails.endTime.toDate
+          ? eventDetails.endTime.toDate().toISOString()
+          : new Date(eventDetails.endTime).toISOString();
+
+        // Generate ICS content
+        const icsContent = generateICSContent({
+          title: `Offly: ${eventDetails.title}`,
+          description: eventDetails.description,
+          location: eventDetails.location,
+          startTime: startISO,
+          endTime: endISO,
+          id: eventDetails.id!
+        });
+
+        // Create email document in Firestore (triggers Firebase Email extension)
+        await addDoc(collection(db, "mail"), {
+          to: user.email,
+          message: {
+            subject: `✅ Prenotazione confermata: ${eventDetails.title}`,
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h1 style="color: #2563eb; text-align: center;">Prenotazione confermata! 🎉</h1>
+
+                <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                  <h2 style="color: #1f2937; margin-top: 0;">${eventDetails.title}</h2>
+                  <p style="margin: 8px 0;"><strong>📅 Data:</strong> ${formatDate(eventDetails.startTime)}</p>
+                  <p style="margin: 8px 0;"><strong>📍 Luogo:</strong> ${eventDetails.location}</p>
+                  <p style="margin: 8px 0;"><strong>📝 Descrizione:</strong> ${eventDetails.description}</p>
+                </div>
+
+                <div style="text-align: center; margin: 30px 0;">
+                  <p style="color: #6b7280; margin-bottom: 10px;">
+                    Scarica il file .ics allegato per aggiungere automaticamente l'evento al tuo calendario!
+                  </p>
+                  <p style="color: #6b7280; font-size: 14px;">
+                    Se non riesci ad aprire l'allegato, puoi aggiungere manualmente l'evento al tuo calendario.
+                  </p>
+                </div>
+
+                <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+
+                <p style="color: #6b7280; font-size: 12px; text-align: center;">
+                  Questo è un messaggio automatico da Offly. Non rispondere a questa email.
+                </p>
+              </div>
+            `,
+            attachments: [{
+              filename: `${eventDetails.title.replace(/[^a-zA-Z0-9]/g, '_')}.ics`,
+              content: icsToBase64(icsContent),
+              type: 'text/calendar; charset=utf-8; method=PUBLISH'
+            }]
+          }
+        });
+
+        console.log("Confirmation email queued successfully");
+      } catch (emailError) {
+        console.error("Failed to send confirmation email:", emailError);
+        // Don't fail the booking if email fails
+      }
       
       // Show success message with appropriate notes
       if (calendarAdded) {
-        alert("✓ Prenotazione completata e aggiunta al tuo Google Calendar!")
+        alert("✅ Prenotazione completata!\n\n✓ Aggiunto al tuo Google Calendar\n✓ Email di conferma inviata con allegato .ics")
       } else if (calendarError) {
         // Calendar sync failed but booking succeeded
         if (calendarError?.message?.includes("expired")) {
-          alert("✓ Prenotazione completata!\n\nNota: Il token Google è scaduto. Per sincronizzare gli eventi futuri con il calendario, accedi di nuovo con Google.")
+          alert("✅ Prenotazione completata!\n\n⚠️ Token Google scaduto - accedi di nuovo per sincronizzare\n✓ Email di conferma inviata con allegato .ics")
         } else if (calendarError?.message?.includes("No access token")) {
-          alert("✓ Prenotazione completata!\n\nNota: Non hai effettuato l'accesso con Google. Per sincronizzare gli eventi con il calendario, accedi con Google.")
+          alert("✅ Prenotazione completata!\n\nℹ️ Accedi con Google per sincronizzare il calendario\n✓ Email di conferma inviata con allegato .ics")
         } else {
-          alert("✓ Prenotazione completata!\n\nNota: Non è stato possibile aggiungere l'evento al calendario. Puoi farlo manualmente.")
+          alert("✅ Prenotazione completata!\n\n✓ Email di conferma inviata con allegato .ics\nℹ️ Puoi aggiungere manualmente l'evento al calendario")
         }
       } else {
-        alert("✓ Prenotazione completata! (L'evento non è stato aggiunto al calendario)")
+        alert("✅ Prenotazione completata!\n\n✓ Email di conferma inviata con allegato .ics\nℹ️ Puoi aggiungere manualmente l'evento al calendario")
       }
     } catch (error: any) {
       console.error("Booking Error Details:", error);
@@ -236,6 +343,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
         });
         
         setIsBooked(false);
+        setAttendees(prev => prev.filter(att => att.uid !== user.uid));
         alert("Prenotazione annullata con successo!");
         
         // Refresh event data to update counts
@@ -385,16 +493,20 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
               <p className="text-sm text-on-surface-variant italic">{eventDetails.badgeText || "Affrettati!"}</p>
             </section>
             
-            {isAdmin && attendees.length > 0 && (
+            {attendees.length > 0 && (
               <section className="space-y-4">
-                 <h3 className="text-xl font-bold tracking-tight text-primary flex items-center gap-2"><Users size={20} /> Iscritti</h3>
+                 <h3 className="text-xl font-bold tracking-tight text-primary flex items-center gap-2"><Users size={20} /> Iscritti ({attendees.length})</h3>
                  <div className="space-y-2">
                     {attendees.map((att, i) => (
-                      <div key={i} className="flex items-center gap-3 p-3 bg-surface-container-low rounded-xl border border-outline-variant/10">
-                        <div className="w-8 h-8 rounded-full bg-primary/5 flex items-center justify-center text-primary font-bold text-xs">{att.displayName?.[0]}</div>
+                      <div key={att.uid || i} className="flex items-center gap-3 p-3 bg-surface-container-low rounded-xl border border-outline-variant/10">
+                        <div className="w-8 h-8 rounded-full bg-primary/5 flex items-center justify-center text-primary font-bold text-xs">{att.displayName?.[0] || "?"}</div>
                         <div className="flex flex-col">
-                          <span className="text-sm font-bold">{att.displayName}</span>
-                          <span className="text-[10px] text-on-surface-variant">{att.email}</span>
+                          <span className="text-sm font-bold">
+                            {isAdmin ? att.displayName : (att.displayName?.split(" ")[0] || "Membro")}
+                          </span>
+                          {isAdmin && att.email && (
+                            <span className="text-[10px] text-on-surface-variant">{att.email}</span>
+                          )}
                         </div>
                       </div>
                     ))}
