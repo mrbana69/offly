@@ -23,10 +23,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   const [isBooking, setIsBooking] = useState(false)
   const [isBooked, setIsBooked] = useState(false)
   
-  const [showReviewForm, setShowReviewForm] = useState(false)
-  const [rating, setRating] = useState(5)
-  const [comment, setComment] = useState("")
-  const [isSubmittingReview, setIsSubmittingReview] = useState(false)
+  const [showCalendarSync, setShowCalendarSync] = useState(false)
 
   useEffect(() => {
     const fetchEventData = async () => {
@@ -84,33 +81,52 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
       let calendarAdded = false;
       let calendarError: any = null;
 
+      console.log("Booking process started");
+      console.log("User authenticated:", !!user);
+      console.log("User provider:", user?.providerData?.[0]?.providerId);
+      console.log("Access token available:", !!accessToken);
+      console.log("Token expiry:", tokenExpiry);
+
       // Try to add to Google Calendar with automatic token refresh
-      if (accessToken) {
+      if (accessToken || (!accessToken && user)) {
         try {
           console.log("Attempting to add event to Google Calendar with token refresh...");
-          const startISO = eventDetails.startTime.toDate 
-            ? eventDetails.startTime.toDate().toISOString() 
-            : new Date(eventDetails.startTime).toISOString();
           
-          const endISO = eventDetails.endTime.toDate 
-            ? eventDetails.endTime.toDate().toISOString() 
-            : new Date(eventDetails.endTime).toISOString();
+          // If no access token but user exists, try to refresh first
+          let tokenToUse = accessToken;
+          if (!tokenToUse && user) {
+            console.log("No access token, attempting to refresh...");
+            tokenToUse = await refreshAccessToken();
+            console.log("Refresh result:", !!tokenToUse);
+          }
 
-          // Use the refresh-aware version that handles token expiry automatically
-          await addEventToGoogleCalendarWithRefresh(
-            accessToken,
-            refreshAccessToken,
-            {
-              title: `Offly: ${eventDetails.title}`,
-              description: eventDetails.description,
-              location: eventDetails.location,
-              startTime: startISO,
-              endTime: endISO,
-            },
-            tokenExpiry
-          );
-          console.log("Event successfully added to Google Calendar");
-          calendarAdded = true;
+          if (tokenToUse) {
+            const startISO = eventDetails.startTime.toDate 
+              ? eventDetails.startTime.toDate().toISOString() 
+              : new Date(eventDetails.startTime).toISOString();
+            
+            const endISO = eventDetails.endTime.toDate 
+              ? eventDetails.endTime.toDate().toISOString() 
+              : new Date(eventDetails.endTime).toISOString();
+
+            // Use the refresh-aware version that handles token expiry automatically
+            await addEventToGoogleCalendarWithRefresh(
+              tokenToUse,
+              refreshAccessToken,
+              {
+                title: `Offly: ${eventDetails.title}`,
+                description: eventDetails.description,
+                location: eventDetails.location,
+                startTime: startISO,
+                endTime: endISO,
+              },
+              tokenExpiry
+            );
+            console.log("Event successfully added to Google Calendar");
+            calendarAdded = true;
+          } else {
+            console.log("No access token available - skipping calendar sync");
+          }
         } catch (error: any) {
           console.error("Calendar Sync Error:", error);
           calendarError = error;
@@ -133,6 +149,8 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
         // Calendar sync failed but booking succeeded
         if (calendarError?.message?.includes("expired")) {
           alert("✓ Prenotazione completata!\n\nNota: Il token Google è scaduto. Per sincronizzare gli eventi futuri con il calendario, accedi di nuovo con Google.")
+        } else if (calendarError?.message?.includes("No access token")) {
+          alert("✓ Prenotazione completata!\n\nNota: Non hai effettuato l'accesso con Google. Per sincronizzare gli eventi con il calendario, accedi con Google.")
         } else {
           alert("✓ Prenotazione completata!\n\nNota: Non è stato possibile aggiungere l'evento al calendario. Puoi farlo manualmente.")
         }
@@ -171,6 +189,27 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  }
+
+  const handleReviewSubmit = async () => {
+    if (!user || !eventDetails) return;
+    setIsSubmittingReview(true)
+    try {
+      await addReview({
+        eventId: id,
+        userId: user.uid,
+        userName: user.displayName || "Anonimo",
+        rating,
+        comment
+      })
+      setComment("")
+      setShowReviewForm(false)
+      const updatedReviews = await getReviews(id)
+      setReviews(updatedReviews)
+      alert("Recensione pubblicata!")
+    } catch (err) {
+      console.error(err); alert("Errore invio recensione.");
+    } finally { setIsSubmittingReview(false) }
   }
 
   const handleCancelBooking = async () => {
