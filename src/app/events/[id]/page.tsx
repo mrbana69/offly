@@ -77,34 +77,47 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   const handleBooking = async () => {
     if (!user) { router.push('/'); return; }
     if (isAdmin) return;
-    if (!accessToken) { alert("Token scaduto, effettua il login."); return; }
-    
     setIsBooking(true)
     try {
       if (!eventDetails) throw new Error("Evento non trovato")
 
-      // FIX CALENDAR: Convertiamo i timestamp in ISO string pulite
-      const startISO = eventDetails.startTime.toDate 
-        ? eventDetails.startTime.toDate().toISOString() 
-        : new Date(eventDetails.startTime).toISOString();
-      
-      const endISO = eventDetails.endTime.toDate 
-        ? eventDetails.endTime.toDate().toISOString() 
-        : new Date(eventDetails.endTime).toISOString();
+      let calendarAdded = false;
 
-      await addEventToGoogleCalendar(accessToken, {
-        title: `Offly: ${eventDetails.title}`,
-        description: eventDetails.description,
-        location: eventDetails.location,
-        startTime: startISO,
-        endTime: endISO,
-      })
+      // Prova ad aggiungere al calendario solo se abbiamo il token
+      if (accessToken) {
+        try {
+          const startISO = eventDetails.startTime.toDate 
+            ? eventDetails.startTime.toDate().toISOString() 
+            : new Date(eventDetails.startTime).toISOString();
+          
+          const endISO = eventDetails.endTime.toDate 
+            ? eventDetails.endTime.toDate().toISOString() 
+            : new Date(eventDetails.endTime).toISOString();
+
+          await addEventToGoogleCalendar(accessToken, {
+            title: `Offly: ${eventDetails.title}`,
+            description: eventDetails.description,
+            location: eventDetails.location,
+            startTime: startISO,
+            endTime: endISO,
+          })
+          calendarAdded = true;
+        } catch (calendarError: any) {
+          console.error("Calendar Sync Error:", calendarError);
+          // Non blocchiamo la prenotazione principale se il calendario fallisce
+        }
+      }
 
       await createBooking(user.uid, id)
       setIsBooked(true)
-      alert("Prenotazione completata e aggiunta al tuo Google Calendar!")
+      
+      if (calendarAdded) {
+        alert("Prenotazione completata e aggiunta al tuo Google Calendar!")
+      } else {
+        alert("Prenotazione completata! (Nota: l'evento non è stato aggiunto al calendario)")
+      }
     } catch (error: any) {
-      console.error("Calendar Error Details:", error);
+      console.error("Booking Error Details:", error);
       alert(`Errore durante la prenotazione: ${error.message}`);
     } finally { setIsBooking(false) }
   }
@@ -176,7 +189,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   const progressValue = (eventDetails.joinedCount / eventDetails.capacity) * 100
 
   return (
-    <div className="flex-1 flex flex-col bg-surface overflow-x-hidden md:flex-row md:items-start relative pb-20">
+    <div className="flex-1 flex flex-col bg-surface overflow-x-hidden md:flex-row md:items-start relative pb-0">
       <button onClick={() => router.back()} className="hidden md:flex fixed top-8 left-8 z-[60] w-12 h-12 bg-white/80 backdrop-blur-md rounded-full items-center justify-center text-primary shadow-lg active-scale hover:bg-white transition-all border border-black/5">
         <ChevronLeft size={24} />
       </button>
@@ -186,7 +199,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
         <div className="absolute inset-0 bg-gradient-to-t from-surface via-transparent to-transparent md:hidden" />
       </div>
 
-      <main className="flex-1 px-margin-page pt-8 pb-40 md:pt-32 md:pb-32 space-y-8 -mt-12 md:mt-0 relative z-10 md:z-auto bg-surface md:bg-transparent rounded-t-ios-xl md:rounded-none">
+      <main className="flex-1 px-margin-page pt-8 pb-64 md:pt-32 md:pb-32 space-y-8 -mt-12 md:mt-0 relative z-10 md:z-auto bg-surface md:bg-transparent rounded-t-ios-xl md:rounded-none">
         <header className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="inline-flex px-3 py-1 rounded-full bg-primary text-on-primary text-[10px] font-bold uppercase tracking-widest">
@@ -298,9 +311,11 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
             )}
 
             {!isAdmin && (
-              <button disabled={isBooking || isBooked} onClick={handleBooking} className={cn("w-full h-16 rounded-full font-bold text-lg flex items-center justify-center gap-2 active-scale shadow-xl transition-all", isBooked ? "bg-green-500 text-white" : "bg-primary text-on-primary shadow-black/10")}>
-                {isBooking ? <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" /> : isBooked ? <><Check size={20} /> Prenotato</> : <><Bolt size={20} fill="currentColor" /> Iscriviti Ora</>}
-              </button>
+              <div className="pt-4 pb-12 md:pb-0">
+                <button disabled={isBooking || isBooked} onClick={handleBooking} className={cn("w-full h-16 rounded-full font-bold text-lg flex items-center justify-center gap-2 active-scale shadow-xl transition-all", isBooked ? "bg-green-500 text-white" : "bg-primary text-on-primary shadow-black/10")}>
+                  {isBooking ? <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" /> : isBooked ? <><Check size={20} /> Prenotato</> : <><Bolt size={20} fill="currentColor" /> Iscriviti Ora</>}
+                </button>
+              </div>
             )}
           </div>
         </div>

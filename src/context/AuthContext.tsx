@@ -32,6 +32,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsDarkMode(true)
       document.documentElement.classList.add("dark")
     }
+    
+    // Load persisted access token
+    const savedToken = localStorage.getItem("google_access_token")
+    if (savedToken) {
+      setAccessToken(savedToken)
+    }
   }, [])
 
   const toggleDarkMode = () => {
@@ -78,6 +84,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const credential = GoogleAuthProvider.credentialFromResult(result)
       const token = credential?.accessToken || null
       setAccessToken(token)
+      if (token) {
+        localStorage.setItem("google_access_token", token)
+      }
 
       // Create user doc if not exists
       await setDoc(doc(db, "users", result.user.uid), {
@@ -124,6 +133,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setUser(null)
       setAccessToken(null)
+      localStorage.removeItem("google_access_token")
       await signOut(auth)
     } catch (error) {
       console.error("Error signing out", error)
