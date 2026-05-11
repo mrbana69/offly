@@ -118,7 +118,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
       }
     } catch (error: any) {
       console.error("Booking Error Details:", error);
-      alert(`Errore durante la prenotazione [V2]: ${error.message}`);
+      alert(`Errore durante la prenotazione: ${error.message}`);
     } finally { setIsBooking(false) }
   }
 
