@@ -23,7 +23,10 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   const [isBooking, setIsBooking] = useState(false)
   const [isBooked, setIsBooked] = useState(false)
   
-  const [showCalendarSync, setShowCalendarSync] = useState(false)
+  const [showReviewForm, setShowReviewForm] = useState(false)
+  const [rating, setRating] = useState(5)
+  const [comment, setComment] = useState("")
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false)
 
   useEffect(() => {
     const fetchEventData = async () => {
