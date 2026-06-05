@@ -78,41 +78,6 @@ offly/
 ├── next.config.ts
 └── package.json
 ```
-
----
-
-## ⚙️ Configurazione rapida (per sviluppatori)
-
-Crea un file `.env.local` con queste variabili:
-
-```env
-# Firebase
-NEXT_PUBLIC_FIREBASE_API_KEY=
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
-NEXT_PUBLIC_FIREBASE_APP_ID=
-
-# Google Calendar
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
-
-# Admin (email separate da virgola)
-NEXT_PUBLIC_ADMIN_EMAILS=
-```
-
-Poi:
-
-```bash
-npm install
-npm run dev
-```
-
-Per creare l'utente admin: `node scripts/setup-admin.js`, poi accedi su `/admin/login`.
-
-Per la configurazione dell'estensione email di Firebase (incluse le istruzioni per Gmail SMTP e SendGrid), consulta [`FIREBASE_EMAIL_SETUP.md`](./FIREBASE_EMAIL_SETUP.md).
-
 ---
 
 ## In memoria di Mattia
