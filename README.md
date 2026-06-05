@@ -1,74 +1,123 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🌿 Offly — Offline Club
 
-## Getting Started
+> *Ritroviamoci dal vivo.*
 
-First, run the development server:
+**Offly** è la web app dell'**Offline Club del Palizzi-Mattei**: un luogo digitale il cui unico scopo è quello di far incontrare le persone nel mondo reale. Scopri gli eventi, prenota il tuo posto, e poi — metti giù il telefono.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+🔗 **[offly-mu.vercel.app](https://offly-mu.vercel.app)**
+
+---
+
+## 🏆 Premio Mattia Di Iorio
+
+Offly è il progetto vincitore del **Premio "Mattia Di Iorio"**, il concorso STEAM istituito dall'**IIS Palizzi-Mattei di Vasto** in memoria di Mattia Di Iorio, studente del Liceo delle Scienze Applicate scomparso prematuramente a 16 anni il 9 giugno 2025.
+
+Mattia era un ragazzo curioso, appassionato della vita, che si indignava vedendo i suoi coetanei con gli occhi fissi sullo schermo:
+
+> *"Io lo so che la mia vita sarà più breve di quella degli altri — diceva — e quando Dio deciderà di riprendermi non avrò paura, ma nel frattempo la voglio vivere al meglio."*
+
+Il concorso, promosso e finanziato dalla sua famiglia e coordinato dalla professoressa Laura Oliva, ha chiesto agli studenti di progettare il **Club Offline Palizzi-Mattei**: un'iniziativa concreta per rimettere al centro le relazioni umane, gli incontri di persona, la condivisione autentica. Il tema richiedeva di definire identità, regolamento, calendario attività e — appunto — una web app per organizzare e gestire il club.
+
+La cerimonia finale si è svolta il **22 maggio 2026** presso la scuola.
+
+---
+
+## 💡 L'idea
+
+In un'epoca in cui ogni interazione sembra passare da uno schermo, l'Offline Club è un atto di resistenza gentile: un gruppo di persone che sceglie consapevolmente di trovarsi di persona, senza il filtro del digitale.
+
+Offly è lo strumento che rende possibile tutto questo — un'app che usa la tecnologia per organizzare momenti in cui la tecnologia non c'è. Paradossale e necessario.
+
+---
+
+## Cosa fa Offly
+
+L'app è pensata per i membri del club e per chi vuole unirsi. In poche schermate permette di:
+
+**Scoprire gli eventi** — la homepage mostra gli incontri in programma: dove, quando, di cosa si tratta. Niente algoritmi, niente feed infiniti. Solo quello che conta.
+
+**Prenotare un posto** — con un click, l'utente riserva il suo spazio all'evento. La prenotazione è semplice e immediata.
+
+**Ricevere la conferma via email** — dopo la prenotazione arriva un'email con tutti i dettagli e un file `.ics` allegato, pronto per essere aggiunto al proprio calendario (Google Calendar, Apple Calendar, Outlook — funziona ovunque).
+
+**Integrare Google Calendar** — chi lo vuole può collegare il proprio account Google e sincronizzare automaticamente gli eventi del club.
+
+Dietro le quinte, gli organizzatori gestiscono tutto da un **pannello admin** dedicato: creano eventi, monitorano le prenotazioni, tengono in ordine il calendario del club.
+
+---
+
+## 🛠️ Come è costruita
+
+Offly è una web app moderna, pensata per funzionare bene su qualsiasi dispositivo.
+
+Il frontend è costruito con **Next.js** e **TypeScript**, stilizzato con **Tailwind CSS** e animato con **Framer Motion** per un'esperienza fluida e piacevole. Il backend si appoggia interamente su **Firebase**: Firestore come database, Firebase Authentication per la gestione degli utenti e degli admin, e l'estensione **Trigger Email** per l'invio automatico delle email di conferma. L'integrazione calendario sfrutta le **Google Calendar API** via OAuth 2.0. Il tutto è deployato su **Vercel**.
+
+```
+Next.js 16 + TypeScript
+Tailwind CSS 4 + Framer Motion
+Firebase (Firestore + Auth + Trigger Email)
+Google Calendar API
+Vercel
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 📁 Struttura del progetto
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+offly/
+├── public/                  # Asset statici
+├── scripts/
+│   └── setup-admin.js       # Crea l'utente admin su Firebase
+├── src/
+│   └── app/                 # Next.js App Router
+│       ├── page.tsx          # Homepage — lista eventi
+│       ├── layout.tsx        # Layout globale
+│       └── admin/login/     # Pannello admin
+├── FIREBASE_EMAIL_SETUP.md  # Guida alla configurazione email
+├── next.config.ts
+└── package.json
+```
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+## ⚙️ Configurazione rapida (per sviluppatori)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Crea un file `.env.local` con queste variabili:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```env
+# Firebase
+NEXT_PUBLIC_FIREBASE_API_KEY=
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+NEXT_PUBLIC_FIREBASE_APP_ID=
 
-## Admin Setup
+# Google Calendar
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
 
-To set up admin access for the application:
+# Admin (email separate da virgola)
+NEXT_PUBLIC_ADMIN_EMAILS=
+```
 
-1. **Environment Variables**: Add admin emails to your `.env.local`:
-   ```
-   NEXT_PUBLIC_ADMIN_EMAILS=admin@offly.com,your-email@example.com
-   ```
+Poi:
 
-2. **Create Admin User**: Run the setup script:
-   ```bash
-   node scripts/setup-admin.js
-   ```
-   This will create a new admin user in Firebase Auth and Firestore.
+```bash
+npm install
+npm run dev
+```
 
-3. **Access Admin Panel**: Visit `/admin/login` and log in with admin credentials.
+Per creare l'utente admin: `node scripts/setup-admin.js`, poi accedi su `/admin/login`.
 
-## Firebase Setup
+Per la configurazione dell'estensione email di Firebase (incluse le istruzioni per Gmail SMTP e SendGrid), consulta [`FIREBASE_EMAIL_SETUP.md`](./FIREBASE_EMAIL_SETUP.md).
 
-1. Create a Firebase project at [https://console.firebase.google.com](https://console.firebase.google.com)
-2. Enable Authentication with Email/Password provider
-3. Enable Firestore Database
-4. Enable Storage (optional, for file uploads)
-5. Copy your Firebase config to `.env.local`
+---
 
-## Google Calendar Integration
+## In memoria di Mattia
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com)
-2. Create a new project or select existing one
-3. Enable Google Calendar API
-4. Create OAuth 2.0 credentials
-5. Add authorized redirect URIs (including your production URL)
-6. Copy credentials to `.env.local`:
-   ```
-   GOOGLE_CLIENT_ID=your_client_id
-   GOOGLE_CLIENT_SECRET=your_client_secret
-   ```
+Questo progetto esiste perché Mattia credeva che stare insieme — davvero, di persona — fosse una delle cose più preziose che esistano. Offly prova a renderlo un po' più facile.
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+> *"A Mattia posso soltanto continuare a dire grazie perché era un ragazzo brillante, curioso, sempre pronto a porsi domande e a cercare soluzioni, con la voglia autentica di capire e di costruire."*
+> — Prof.ssa Laura Oliva, referente del progetto
